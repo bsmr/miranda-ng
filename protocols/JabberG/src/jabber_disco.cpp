@@ -51,57 +51,51 @@ static DWORD sttLastAutoDisco = 0;
 
 enum { SD_OVERLAY_NONE, SD_OVERLAY_FAIL, SD_OVERLAY_PROGRESS, SD_OVERLAY_REGISTERED };
 
-static struct
+struct
 {
 	char *feature;
 	char *category;
 	char *type;
-	char *iconName;
+	int iconRes;
 	int iconIndex;
 	int listIndex;
-} sttNodeIcons[] =
+}
+static sttNodeIcons[] =
 {
 	//	standard identities: http://www.xmpp.org/registrar/disco-categories.html#directory
-	{nullptr,	"account",			nullptr,			nullptr,				SKINICON_STATUS_ONLINE},
-	{nullptr,	"auth",				nullptr,			"key",				0},
-	{nullptr,	"automation",		nullptr,			"adhoc",				0},
-	{nullptr,	"client",			nullptr,			nullptr,				SKINICON_STATUS_ONLINE},
-	{nullptr,	"collaboration",	nullptr,			"group",				0},
-	{nullptr,	"conference",		nullptr,			"group",				0},
-																				
-	{nullptr,	"directory",		"chatroom",		"group",				0},
-	{nullptr,	"directory",		"group",			"group",				0},
-	{nullptr,	"directory",		"user",			nullptr,				SKINICON_OTHER_FINDUSER},
-	{nullptr,	"directory",		nullptr,			nullptr,				SKINICON_OTHER_SEARCHALL},
+	{nullptr,   "account",        nullptr,         0,                SKINICON_STATUS_ONLINE},
+	{nullptr,   "auth",           nullptr,         IDI_KEYS,         0},
+	{nullptr,   "automation",     nullptr,         IDI_COMMAND,      0},
+	{nullptr,   "client",         nullptr,         0,                SKINICON_STATUS_ONLINE},
+	{nullptr,   "collaboration",  nullptr,         IDI_GROUP,        0},
+	{nullptr,   "conference",     nullptr,         IDI_GROUP,        0},
+                                                            
+	{nullptr,   "directory",      "chatroom",      IDI_GROUP,        0},
+	{nullptr,   "directory",      "group",         IDI_GROUP,        0},
+	{nullptr,   "directory",      "user",          0,                SKINICON_OTHER_FINDUSER},
+	{nullptr,   "directory",      nullptr,         0,                SKINICON_OTHER_SEARCHALL},
 
-	{nullptr,	"gateway",			"aim",			"AIM",				SKINICON_STATUS_ONLINE},
-	{nullptr,	"gateway",			"gadu-gadu",	"GG",					SKINICON_STATUS_ONLINE},
-	{nullptr,	"gateway",			"icq",			"ICQ",				SKINICON_STATUS_ONLINE},
-	{nullptr,	"gateway",			"msn",			"MSN",				SKINICON_STATUS_ONLINE},
-	{nullptr,	"gateway",			"qq",				"QQ",					SKINICON_STATUS_ONLINE},
-	{nullptr,	"gateway",			"tlen",			"TLEN",				SKINICON_STATUS_ONLINE},
-	{nullptr,	"gateway",			"yahoo",			"YAHOO",				SKINICON_STATUS_ONLINE},
-	{nullptr,	"gateway",			nullptr,			"Agents",			0},
+	{nullptr,   "gateway",        nullptr,         IDI_AGENTS,       0},
 
-	{nullptr,	"headline",			"rss",			"node_rss",			0},
-	{nullptr,	"headline",			"weather",		"node_weather",	0},
+	{nullptr,   "headline",       "rss",           IDI_NODE_RSS,     0},
+	{nullptr,   "headline",       "weather",       IDI_NODE_WEATHER, 0},
 
-	{nullptr,	"proxy",				nullptr,			nullptr,				SKINICON_EVENT_FILE},
+	{nullptr,   "proxy",          nullptr,         0,                SKINICON_EVENT_FILE},
 
-	{nullptr,	"server",			nullptr,			"node_server",		0},
+	{nullptr,   "server",         nullptr,         IDI_NODE_SERVER,  0},
 
-	{nullptr,	"store",				nullptr,			"node_store",		0},
+	{nullptr,   "store",          nullptr,         IDI_NODE_STORE,   0},
 
-	//	icons for non-standard identities
-	{nullptr,	"x-service",		"x-rss",			"node_rss",			0},
-	{nullptr,	"application",		"x-weather",	"node_weather",	0},
-	{nullptr,	"user",				nullptr,			nullptr,				SKINICON_STATUS_ONLINE},
+	//   icons for non-standard identities
+	{nullptr,   "x-service",      "x-rss",         IDI_NODE_RSS,     0},
+	{nullptr,   "application",    "x-weather",     IDI_NODE_WEATHER, 0},
+	{nullptr,   "user",           nullptr,         0,                SKINICON_STATUS_ONLINE},
 
-	//	icon suggestions based on supported features
-	{"jabber:iq:gateway",     nullptr,		nullptr,		"Agents",	0},
-	{"jabber:iq:search",      nullptr,		nullptr,		nullptr,		SKINICON_OTHER_FINDUSER},
-	{JABBER_FEAT_COMMANDS,    nullptr,		nullptr,		"adhoc",		0},
-	{JABBER_FEAT_REGISTER,    nullptr,		nullptr,		"key",		0},
+	//   icon suggestions based on supported features
+	{"jabber:iq:gateway",     nullptr,      nullptr,      IDI_AGENTS,   0},
+	{"jabber:iq:search",      nullptr,      nullptr,      0,            SKINICON_OTHER_FINDUSER},
+	{JABBER_FEAT_COMMANDS,    nullptr,      nullptr,      IDI_COMMAND,  0},
+	{JABBER_FEAT_REGISTER,    nullptr,      nullptr,      IDI_KEYS,     0},
 };
 
 void CJabberProto::OnIqResultServiceDiscoveryInfo(const TiXmlElement *iqNode, CJabberIqInfo *pInfo)
@@ -181,12 +175,12 @@ void CJabberProto::OnIqResultServiceDiscoveryItems(const TiXmlElement *iqNode, C
 
 void CJabberProto::OnIqResultServiceDiscoveryRootInfo(const TiXmlElement *iqNode, CJabberIqInfo *pInfo)
 {
-	if (!pInfo->m_pUserData) return;
+	if (!pInfo->GetUserData()) return;
 
 	mir_cslockfull lck(m_SDManager.cs());
 	if (pInfo->GetIqType() == JABBER_IQ_TYPE_RESULT) {
 		for (auto *feature : TiXmlFilter(XmlFirstChild(iqNode, "query"), "feature")) {
-			if (!mir_strcmp(XmlGetAttr(feature, "var"), (char*)pInfo->m_pUserData)) {
+			if (!mir_strcmp(XmlGetAttr(feature, "var"), (char*)pInfo->GetUserData())) {
 				CJabberSDNode *pNode = m_SDManager.AddPrimaryNode(pInfo->GetReceiver(), XmlGetAttr(iqNode, "node"));
 				SendBothRequests(pNode);
 				break;
@@ -200,7 +194,7 @@ void CJabberProto::OnIqResultServiceDiscoveryRootInfo(const TiXmlElement *iqNode
 
 void CJabberProto::OnIqResultServiceDiscoveryRootItems(const TiXmlElement *iqNode, CJabberIqInfo *pInfo)
 {
-	if (!pInfo->m_pUserData)
+	if (!pInfo->GetUserData())
 		return;
 
 	TiXmlDocument packet;
@@ -209,8 +203,7 @@ void CJabberProto::OnIqResultServiceDiscoveryRootItems(const TiXmlElement *iqNod
 		for (auto *item : TiXmlFilter(XmlFirstChild(iqNode, "query"), "item")) {
 			const char *szJid = XmlGetAttr(item, "jid");
 			const char *szNode = XmlGetAttr(item, "node");
-			CJabberIqInfo *pNewInfo = AddIQ(&CJabberProto::OnIqResultServiceDiscoveryRootInfo, JABBER_IQ_TYPE_GET, szJid);
-			pNewInfo->m_pUserData = pInfo->m_pUserData;
+			CJabberIqInfo *pNewInfo = AddIQ(&CJabberProto::OnIqResultServiceDiscoveryRootInfo, JABBER_IQ_TYPE_GET, szJid, pInfo->GetUserData());
 			pNewInfo->SetTimeout(30000);
 
 			XmlNodeIq iq(pNewInfo);
@@ -341,16 +334,14 @@ void CJabberProto::PerformBrowse(HWND hwndDlg)
 		}
 	}
 	else if (!mir_wstrcmp(szJid, _T(SD_FAKEJID_CONFERENCES))) {
-		CJabberIqInfo *pInfo = AddIQ(&CJabberProto::OnIqResultServiceDiscoveryRootItems, JABBER_IQ_TYPE_GET, m_ThreadInfo->conn.server);
-		pInfo->m_pUserData = (void*)JABBER_FEAT_MUC;
+		CJabberIqInfo *pInfo = AddIQ(&CJabberProto::OnIqResultServiceDiscoveryRootItems, JABBER_IQ_TYPE_GET, m_ThreadInfo->conn.server, (void*)JABBER_FEAT_MUC);
 		pInfo->SetTimeout(30000);
 		XmlNodeIq iq(pInfo);
 		iq << XQUERY(JABBER_FEAT_DISCO_ITEMS);
 		m_ThreadInfo->send(iq);
 	}
 	else if (!mir_wstrcmp(szJid, _T(SD_FAKEJID_AGENTS))) {
-		CJabberIqInfo *pInfo = AddIQ(&CJabberProto::OnIqResultServiceDiscoveryRootItems, JABBER_IQ_TYPE_GET, m_ThreadInfo->conn.server);
-		pInfo->m_pUserData = (void*)L"jabber:iq:gateway";
+		CJabberIqInfo *pInfo = AddIQ(&CJabberProto::OnIqResultServiceDiscoveryRootItems, JABBER_IQ_TYPE_GET, m_ThreadInfo->conn.server, L"jabber:iq:gateway");
 		pInfo->SetTimeout(30000);
 		XmlNodeIq iq(pInfo);
 		iq << XQUERY(JABBER_FEAT_DISCO_ITEMS);
@@ -423,7 +414,7 @@ void CJabberProto::ApplyNodeIcon(HTREELISTITEM hItem, CJabberSDNode *pNode)
 	}
 
 	for (auto &it : sttNodeIcons) {
-		if (!it.iconIndex && !it.iconName)
+		if (!it.iconIndex && !it.iconRes)
 			continue;
 
 		if (it.category) {
@@ -506,12 +497,12 @@ public:
 	CJabberDlgDiscovery(CJabberProto *proto, char *jid) :
 		CJabberDlgBase(proto, IDD_SERVICE_DISCOVERY),
 		m_jid(jid),
-		m_btnViewAsTree(this, IDC_BTN_VIEWTREE, proto->LoadIconEx("sd_view_tree"), "View as tree"),
-		m_btnViewAsList(this, IDC_BTN_VIEWLIST, proto->LoadIconEx("sd_view_list"), "View as list"),
-		m_btnGoHome(this, IDC_BTN_NAVHOME, proto->LoadIconEx("sd_nav_home"), "Navigate home"),
-		m_btnBookmarks(this, IDC_BTN_FAVORITE, proto->LoadIconEx("bookmarks"), "Favorites"),
-		m_btnRefresh(this, IDC_BTN_REFRESH, proto->LoadIconEx("sd_nav_refresh"), "Refresh node"),
-		m_btnBrowse(this, IDC_BUTTON_BROWSE, proto->LoadIconEx("sd_browse"), "Browse"),
+		m_btnViewAsTree(this, IDC_BTN_VIEWTREE, g_plugin.getIcon(IDI_VIEW_TREE), "View as tree"),
+		m_btnViewAsList(this, IDC_BTN_VIEWLIST, g_plugin.getIcon(IDI_VIEW_LIST), "View as list"),
+		m_btnGoHome(this, IDC_BTN_NAVHOME, g_plugin.getIcon(IDI_NAV_HOME), "Navigate home"),
+		m_btnBookmarks(this, IDC_BTN_FAVORITE, g_plugin.getIcon(IDI_BOOKMARKS), "Favorites"),
+		m_btnRefresh(this, IDC_BTN_REFRESH, g_plugin.getIcon(IDI_NAV_REFRESH), "Refresh node"),
+		m_btnBrowse(this, IDC_BUTTON_BROWSE, g_plugin.getIcon(IDI_BROWSE), "Browse"),
 		m_lstDiscoTree(this, IDC_TREE_DISCO), 
 		m_filter(this, IDC_FILTER)
 	{
@@ -529,7 +520,7 @@ public:
 	{
 		CSuper::OnInitDialog();
 
-		Window_SetIcon_IcoLib(m_hwnd, g_GetIconHandle(IDI_SERVICE_DISCOVERY));
+		Window_SetIcon_IcoLib(m_hwnd, g_plugin.getIconHandle(IDI_SERVICE_DISCOVERY));
 
 		if (m_jid) {
 			SetDlgItemTextUtf(m_hwnd, IDC_COMBO_JID, m_jid);
@@ -572,25 +563,19 @@ public:
 		ListView_InsertColumn(hwndList, 2, &lvc);
 
 		TreeList_Create(hwndList);
-		TreeList_AddIcon(hwndList, m_proto->LoadIconEx("main"), 0);
+		TreeList_AddIcon(hwndList, g_plugin.getIcon(IDI_JABBER), 0);
 		for (auto &it : sttNodeIcons) {
-			bool needDestroy = false;
 			HICON hIcon;
-			if ((it.iconIndex == SKINICON_STATUS_ONLINE) && it.iconName) {
-				hIcon = (HICON)CallProtoService(it.iconName, PS_LOADICON, PLI_PROTOCOL | PLIF_SMALL, 0);
-				needDestroy = true;
-			}
-			else if (it.iconName)
-				hIcon = m_proto->LoadIconEx(it.iconName);
+			if (it.iconRes)
+				hIcon = g_plugin.getIcon(it.iconRes);
 			else if (it.iconIndex)
 				hIcon = Skin_LoadIcon(it.iconIndex);
 			else continue;
 			it.listIndex = TreeList_AddIcon(hwndList, hIcon, 0);
-			if (needDestroy) DestroyIcon(hIcon);
 		}
-		TreeList_AddIcon(hwndList, m_proto->LoadIconEx("disco_fail"), SD_OVERLAY_FAIL);
-		TreeList_AddIcon(hwndList, m_proto->LoadIconEx("disco_progress"), SD_OVERLAY_PROGRESS);
-		TreeList_AddIcon(hwndList, m_proto->LoadIconEx("disco_ok"), SD_OVERLAY_REGISTERED);
+		TreeList_AddIcon(hwndList, g_plugin.getIcon(IDI_DISCO_FAIL), SD_OVERLAY_FAIL);
+		TreeList_AddIcon(hwndList, g_plugin.getIcon(IDI_DISCO_PROGRESS), SD_OVERLAY_PROGRESS);
+		TreeList_AddIcon(hwndList, g_plugin.getIcon(IDI_DISCO_OK), SD_OVERLAY_REGISTERED);
 
 		TreeList_SetMode(hwndList, m_proto->getByte("discoWnd_useTree", 1) ? TLM_TREE : TLM_REPORT);
 

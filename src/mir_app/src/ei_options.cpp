@@ -117,7 +117,7 @@ class CExtraIconOptsDlg : public CDlgBase
 			BaseExtraIcon *extra = registeredExtraIcons[group.data[i] - 1];
 			ids->add(extra->getID());
 
-			if (img == 0 && !IsEmpty(extra->getDescIcon()))
+			if (img == 0 && extra->getDescIcon() != nullptr)
 				img = extra->getID();
 
 			if (i > 0)
@@ -414,23 +414,20 @@ public:
 	void BuildIconList()
 	{
 		HIMAGELIST hImageList = ImageList_Create(g_iIconSX, g_iIconSX, ILC_COLOR32 | ILC_MASK, 2, 2);
-
-		HICON hBlankIcon = (HICON)LoadImage(g_plugin.getInst(), MAKEINTRESOURCE(IDI_BLANK), IMAGE_ICON, g_iIconSX, g_iIconSX, 0);
-		ImageList_AddIcon(hImageList, hBlankIcon);
+		ImageList_AddIcon_NotShared(hImageList, MAKEINTRESOURCE(IDI_BLANK));
 
 		for (auto &extra : registeredExtraIcons) {
 			extra->setID(registeredExtraIcons.indexOf(&extra)+1);
 
-			HICON hIcon = IcoLib_GetIcon(extra->getDescIcon());
+			HICON hIcon = IcoLib_GetIconByHandle(extra->getDescIcon());
 			if (hIcon == nullptr)
-				ImageList_AddIcon(hImageList, hBlankIcon);
+				ImageList_AddIcon_NotShared(hImageList, MAKEINTRESOURCE(IDI_BLANK));
 			else {
 				ImageList_AddIcon(hImageList, hIcon);
 				IcoLib_ReleaseIcon(hIcon);
 			}
 		}
 		m_tree.SetImageList(hImageList, TVSIL_NORMAL);
-		DestroyIcon(hBlankIcon);
 
 		for (auto &extra : extraIconsBySlot) {
 			if (extra->getType() == EXTRAICON_TYPE_GROUP) {

@@ -159,7 +159,7 @@ int ImageList_AddIcon_NotShared(HIMAGELIST hIml, LPCTSTR szResource)
 	return res;
 }
 
-int ImageList_AddIcon_IconLibLoaded(HIMAGELIST hIml, int iconId)
+MIR_APP_DLL(int) ImageList_AddSkinIcon(HIMAGELIST hIml, int iconId)
 {
 	HICON hIcon = Skin_LoadIcon(iconId);
 	int res = ImageList_AddIcon(hIml, hIcon);
@@ -167,19 +167,11 @@ int ImageList_AddIcon_IconLibLoaded(HIMAGELIST hIml, int iconId)
 	return res;
 }
 
-int ImageList_AddIcon_ProtoIconLibLoaded(HIMAGELIST hIml, const char *szProto, int iconId)
+MIR_APP_DLL(int) ImageList_AddProtoIcon(HIMAGELIST hIml, const char *szProto, int iconId)
 {
 	HICON hIcon = Skin_LoadProtoIcon(szProto, iconId);
 	int res = ImageList_AddIcon(hIml, hIcon);
 	IcoLib_ReleaseIcon(hIcon);
-	return res;
-}
-
-int ImageList_ReplaceIcon_NotShared(HIMAGELIST hIml, int iIndex, HINSTANCE hInstance, LPCTSTR szResource)
-{
-	HICON hTempIcon = LoadIconEx(hInstance, szResource, 0);
-	int res = ImageList_ReplaceIcon(hIml, iIndex, hTempIcon);
-	Safe_DestroyIcon(hTempIcon);
 	return res;
 }
 
@@ -354,19 +346,6 @@ MIR_APP_DLL(HANDLE) Skin_GetIconHandle(int idx)
 		if (idx == it.id)
 			return it.hIcolib;
 
-	return nullptr;
-}
-
-MIR_APP_DLL(char*) Skin_GetIconName(int idx)
-{
-	static char szIconName[100];
-
-	for (int i = 0; i < _countof(mainIcons); i++) {
-		if (idx == mainIcons[i].id) {
-			mir_snprintf(szIconName, "%s%d", mainIconsFmt, i);
-			return szIconName;
-		}
-	}
 	return nullptr;
 }
 

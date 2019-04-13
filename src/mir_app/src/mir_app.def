@@ -14,7 +14,7 @@ IcoLib_GetIconHandle       @12
 IcoLib_IsManaged           @13
 IcoLib_ReleaseIcon         @14
 Window_FreeIcon_IcoLib     @15
-Window_SetSkinIcon_IcoLib      @16
+Window_SetSkinIcon_IcoLib  @16
 Window_SetProtoIcon_IcoLib @17
 ProtoServiceExists         @18
 mir_main                   @19
@@ -22,7 +22,6 @@ IcoLib_RemoveIcon          @20
 IcoLib_RemoveIconByHandle  @21
 IcoLib_Release             @22
 IcoLib_AddRef              @23
-Skin_GetIconName           @24
 ??0CProtoIntDlgBase@@QAE@ABV0@@Z @25 NONAME
 ??0CProtoIntDlgBase@@QAE@PAUPROTO_INTERFACE@@H@Z @26 NONAME
 ??0PROTO_INTERFACE@@QAE@ABU0@@Z @27 NONAME
@@ -675,3 +674,10 @@ Popup_Add @764
 Popup_Change @765
 Skin_GetProtoIcon @766
 Srmm_SetIconFlags @767
+?addIcolib@CMPluginBase@@QAEXPAX@Z @768 NONAME
+?getIcon@CMPluginBase@@QAEPAUHICON__@@H_N@Z @769 NONAME
+?getIconHandle@CMPluginBase@@QAEPAXH@Z @770 NONAME
+?releaseIcon@CMPluginBase@@QAEXH_N@Z @771 NONAME
+?addImgListIcon@CMPluginBase@@QAEHPAU_IMAGELIST@@H@Z @772 NONAME
+ImageList_AddProtoIcon @773
+ImageList_AddSkinIcon @774

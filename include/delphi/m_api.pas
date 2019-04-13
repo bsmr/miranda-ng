@@ -142,13 +142,19 @@ type
 
 type
   PCMPlugin = ^CMPlugin;
-  CMPlugin = record
+  CMPlugin = packed record
     vft        : pointer;  // virtual function table
+
     m_hInst    : THANDLE;
     m_szModule : PAnsiChar;
     m_pInfo    : PPLUGININFOEX;
     m_hLogger  : THANDLE;
-    m_hLang    : int;
+
+    blabla1    : pointer;  // emulator of icon's list
+    blabla2    : integer;
+    blabla3    : integer;
+    blabla4    : integer;
+    blabla5    : pointer;
   end;
 
 //----- Fork enchancement -----
@@ -219,7 +225,6 @@ var
   {$include m_history.inc}
   {$include m_hotkeys.inc}
   {$include m_icolib.inc}
-  {$include m_iconheader.inc}
   {$include m_ignore.inc}
   {$include m_imgsrvc.inc}
   {$include m_json.inc}
@@ -253,6 +258,7 @@ implementation
 initialization
   g_plugin.m_hInst := hInstance;
   g_plugin.m_pInfo := @PluginInfo;
+  g_plugin.blabla4 := 10;
   RegisterPlugin(g_plugin);
 
 finalization

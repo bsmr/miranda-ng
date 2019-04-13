@@ -25,6 +25,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifndef M_NEWPLUGINAPI_H__
 #define M_NEWPLUGINAPI_H__
 
+#if !defined(HIMAGELIST)
+typedef struct _IMAGELIST* HIMAGELIST;
+#endif
+
 #include <m_core.h>
 #include <m_database.h>
 
@@ -151,6 +155,8 @@ typedef int(*pfnUninitProto)(PROTO_INTERFACE*);
 #pragma warning(push)
 #pragma warning(disable:4275)
 
+struct IcolibItem;
+
 class MIR_APP_EXPORT CMPluginBase : public MNonCopyable
 {
 	void tryOpenLog();
@@ -160,6 +166,7 @@ protected:
 	const char *m_szModuleName;
 	const PLUGININFOEX &m_pInfo;
 	HANDLE m_hLogger = nullptr;
+	LIST<IcolibItem> m_arIcons;
 
 	CMPluginBase(const char *moduleName, const PLUGININFOEX &pInfo);
 	~CMPluginBase();
@@ -171,6 +178,12 @@ protected:
 public:
 	void debugLogA(LPCSTR szFormat, ...);
 	void debugLogW(LPCWSTR wszFormat, ...);
+
+	__forceinline void addIcolib(HANDLE hIcolib) { m_arIcons.insert((IcolibItem*)hIcolib); }
+	int    addImgListIcon(HIMAGELIST himl, int iconId);
+	HICON  getIcon(int iconId, bool big = false);
+	HANDLE getIconHandle(int iconId);
+	void   releaseIcon(int iconId, bool big = false);
 
 	__forceinline const PLUGININFOEX& getInfo() const { return m_pInfo; }
 	__forceinline const char* getModule() const { return m_szModuleName; }

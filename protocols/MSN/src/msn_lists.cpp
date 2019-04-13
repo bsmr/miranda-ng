@@ -471,28 +471,25 @@ INT_PTR CALLBACK DlgProcMsnServLists(HWND hwndDlg, UINT msg, WPARAM wParam, LPAR
 			SetWindowLongPtr(hwndDlg, GWLP_USERDATA, lParam);
 
 			HIMAGELIST hIml = ImageList_Create(GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), ILC_MASK | ILC_COLOR32, 5, 5);
+			ImageList_AddSkinIcon(hIml, SKINICON_OTHER_SMALLDOT);
 
-			HICON hIcon = Skin_LoadIcon(SKINICON_OTHER_SMALLDOT);
-			ImageList_AddIcon(hIml, hIcon);
-			IcoLib_ReleaseIcon(hIcon);
-
-			hIcon = LoadIconEx("list_lc");
+			HICON hIcon = g_plugin.getIcon(IDI_LIST_LC);
 			ImageList_AddIcon(hIml, hIcon);
 			SendDlgItemMessage(hwndDlg, IDC_ICON_LC, STM_SETICON, (WPARAM)hIcon, 0);
 
-			hIcon = LoadIconEx("list_fl");
+			hIcon = g_plugin.getIcon(IDI_LIST_FL);
 			ImageList_AddIcon(hIml, hIcon);
 			SendDlgItemMessage(hwndDlg, IDC_ICON_FL, STM_SETICON, (WPARAM)hIcon, 0);
 
-			hIcon = LoadIconEx("list_al");
+			hIcon = g_plugin.getIcon(IDI_LIST_AL);
 			ImageList_AddIcon(hIml, hIcon);
 			SendDlgItemMessage(hwndDlg, IDC_ICON_AL, STM_SETICON, (WPARAM)hIcon, 0);
 
-			hIcon = LoadIconEx("list_bl");
+			hIcon = g_plugin.getIcon(IDI_LIST_BL);
 			ImageList_AddIcon(hIml, hIcon);
 			SendDlgItemMessage(hwndDlg, IDC_ICON_BL, STM_SETICON, (WPARAM)hIcon, 0);
 
-			hIcon = LoadIconEx("list_rl");
+			hIcon = g_plugin.getIcon(IDI_LIST_RL);
 			ImageList_AddIcon(hIml, hIcon);
 			SendDlgItemMessage(hwndDlg, IDC_ICON_RL, STM_SETICON, (WPARAM)hIcon, 0);
 
@@ -568,10 +565,10 @@ INT_PTR CALLBACK DlgProcMsnServLists(HWND hwndDlg, UINT msg, WPARAM wParam, LPAR
 	case WM_DESTROY:
 		HIMAGELIST hIml = (HIMAGELIST)SendDlgItemMessage(hwndDlg, IDC_LIST, CLM_GETEXTRAIMAGELIST, 0, 0);
 		ImageList_Destroy(hIml);
-		ReleaseIconEx("list_fl");
-		ReleaseIconEx("list_al");
-		ReleaseIconEx("list_bl");
-		ReleaseIconEx("list_rl");
+		g_plugin.releaseIcon(IDI_LIST_FL);
+		g_plugin.releaseIcon(IDI_LIST_AL);
+		g_plugin.releaseIcon(IDI_LIST_BL);
+		g_plugin.releaseIcon(IDI_LIST_RL);
 		break;
 	}
 
