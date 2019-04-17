@@ -16,6 +16,13 @@
 
 #include "./bits.h"
 
+#define print_enter printf("%s:%s:%d enter\n", __FILE__, __FUNCTION__, __LINE__)
+#define print_exit_ok                                                          \
+  printf("%s:%s:%d exit ok\n", __FILE__, __FUNCTION__, __LINE__)
+#define print_exit_error                                                       \
+  printf("\n\n\t%s:%s:%d exit error\n\n\n", __FILE__, __FUNCTION__, __LINE__)
+#define print_line printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__)
+
 #if defined(_WIN32) || defined(_WIN64)
 
 static int waitstatus2errcode(DWORD result) {
@@ -454,6 +461,7 @@ int mdbx_removefile(const char *pathname) {
 }
 int mdbx_openfile(const char *pathname, int flags, mode_t mode,
                   mdbx_filehandle_t *fd, bool exclusive) {
+  print_enter;
   *fd = INVALID_HANDLE_VALUE;
 #if defined(_WIN32) || defined(_WIN64)
   (void)mode;
@@ -462,7 +470,10 @@ int mdbx_openfile(const char *pathname, int flags, mode_t mode,
   DWORD FlagsAndAttributes = FILE_ATTRIBUTE_NORMAL;
   switch (flags & (O_RDONLY | O_WRONLY | O_RDWR)) {
   default:
+	  {
+	  print_exit_error;
     return ERROR_INVALID_PARAMETER;
+	}
   case O_RDONLY:
     DesiredAccess = GENERIC_READ;
     ShareMode =
@@ -481,8 +492,10 @@ int mdbx_openfile(const char *pathname, int flags, mode_t mode,
 
   DWORD CreationDisposition;
   switch (flags & (O_EXCL | O_CREAT)) {
-  default:
+  default: { 
+	  print_exit_error;
     return ERROR_INVALID_PARAMETER;
+  }
   case 0:
     CreationDisposition = OPEN_EXISTING;
     break;
@@ -499,8 +512,10 @@ int mdbx_openfile(const char *pathname, int flags, mode_t mode,
   *fd = CreateFileA(pathname, DesiredAccess, ShareMode, NULL,
                     CreationDisposition, FlagsAndAttributes, NULL);
 
-  if (*fd == INVALID_HANDLE_VALUE)
+  if (*fd == INVALID_HANDLE_VALUE) {
+    print_exit_error;
     return GetLastError();
+  }
   if ((flags & O_CREAT) && GetLastError() != ERROR_ALREADY_EXISTS) {
     /* set FILE_ATTRIBUTE_NOT_CONTENT_INDEXED for new file */
     DWORD FileAttributes = GetFileAttributesA(pathname);
@@ -510,6 +525,7 @@ int mdbx_openfile(const char *pathname, int flags, mode_t mode,
       int rc = GetLastError();
       CloseHandle(*fd);
       *fd = INVALID_HANDLE_VALUE;
+      print_exit_error;
       return rc;
     }
   }
@@ -527,6 +543,7 @@ int mdbx_openfile(const char *pathname, int flags, mode_t mode,
     (void)fcntl(*fd, F_SETFD, flags | FD_CLOEXEC);
 #endif
 #endif
+  print_exit_ok;
   return MDBX_SUCCESS;
 }
 
