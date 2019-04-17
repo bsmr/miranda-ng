@@ -233,10 +233,11 @@ MCONTACT CIcqProto::ParseBuddyInfo(const JSONNode &buddy, MCONTACT hContact)
 		hex2binW(wszCap, cap, sizeof(cap));
 		if (!memcmp(cap, "MiNG", 4)) { // Miranda
 			int v[4];
-			swscanf(wszCap.c_str() + 16, L"%04x%04x%04x%04x", &v[0], &v[1], &v[2], &v[3]);
-			szVer.Format("Miranda NG %d.%d.%d.%d (ICQ %d.%d.%d.%d)", v[0], v[1], v[2], v[3], cap[4], cap[5], cap[6], cap[7]);
-			setString(hContact, "MirVer", szVer);
-			bVersionDetected = true;
+			if (4 == swscanf(wszCap.c_str() + 16, L"%04x%04x%04x%04x", &v[0], &v[1], &v[2], &v[3])) {
+				szVer.Format("Miranda NG %d.%d.%d.%d (ICQ %d.%d.%d.%d)", v[0], v[1], v[2], v[3], cap[4], cap[5], cap[6], cap[7]);
+				setString(hContact, "MirVer", szVer);
+				bVersionDetected = true;
+			}
 		}
 		else if (wszCap == _A2W(NG_CAP_SECUREIM)) {
 			bSecureIM = bVersionDetected = true;
@@ -397,9 +398,8 @@ bool CIcqProto::RefreshRobustToken()
 	bool bRet = false;
 	auto *tmp = new AsyncHttpRequest(CONN_RAPI, REQUEST_POST, ICQ_ROBUST_SERVER "/genToken");
 
-	time_t ts = TS();
-	tmp << CHAR_PARAM("a", m_szAToken) << CHAR_PARAM("k", ICQ_APP_ID)
-		<< CHAR_PARAM("nonce", CMStringA(FORMAT, "%d-%d", ts, rand() % 10)) << INT_PARAM("ts", TS());
+	int ts = TS();
+	tmp << CHAR_PARAM("a", m_szAToken) << CHAR_PARAM("k", ICQ_APP_ID) << CHAR_PARAM("nonce", CMStringA(FORMAT, "%d-%d", ts, rand() % 10)) << INT_PARAM("ts", TS());
 	CalcHash(tmp);
 	tmp->flags |= NLHRF_PERSISTENT;
 	tmp->nlc = m_ConnPool[CONN_RAPI].s;
@@ -488,8 +488,7 @@ void CIcqProto::RetrieveUserHistory(MCONTACT hContact, __int64 startMsgId, __int
 	if (endMsgId != -1)
 		params << INT64_PARAM("tillMsgId", endMsgId);
 	params << INT_PARAM("count", 1000) << CHAR_PARAM("aimSid", m_aimsid) << CHAR_PARAM("patchVersion", "1") << CHAR_PARAM("language", "ru-ru");
-	request << CHAR_PARAM("method", "getHistory") << CHAR_PARAM("reqId", pReq->m_reqId) << CHAR_PARAM("authToken", m_szRToken)
-		<< INT_PARAM("clientId", m_iRClientId) << params;
+	request << CHAR_PARAM("method", "getHistory") << CHAR_PARAM("reqId", pReq->m_reqId) << params;
 	pReq->m_szParam = ptrW(json_write(&request));
 	Push(pReq);
 }
@@ -678,7 +677,7 @@ void CIcqProto::OnFileContinue(NETLIBHTTPREQUEST *pReply, AsyncHttpRequest *pOld
 			JSONNode bundle, contents; contents.set_name("captionedContent");
 			contents << WCHAR_PARAM("caption", pTransfer->m_wszDescr) << WCHAR_PARAM("url", wszUrl);
 			bundle << CHAR_PARAM("mediaType", "text") << CHAR_PARAM("text", "") << contents;
-			CMStringW wszParts(FORMAT, L"[%s]", ptrW(json_write(&bundle)));
+			CMStringW wszParts(FORMAT, L"[%s]", ptrW(json_write(&bundle)).get());
 
 			if (!pTransfer->m_wszDescr.IsEmpty())
 				wszUrl += L" " + pTransfer->m_wszDescr;
@@ -783,6 +782,13 @@ void CIcqProto::OnStartSession(NETLIBHTTPREQUEST *pReply, AsyncHttpRequest *)
 	switch (root.error()) {
 	case 200:
 		break;
+
+	case 451:
+		// session forcibly closed from site
+		delSetting(DB_KEY_ATOKEN);
+		delSetting(DB_KEY_SESSIONKEY);
+		CheckPassword();
+		return;
 
 	case 401:
 		if (root.detail() == 1002) { // session expired

@@ -133,7 +133,7 @@ struct IcqFileTransfer : public MZeroedObject
 	void FillHeaders(AsyncHttpRequest *pReq)
 	{
 		pReq->AddHeader("Content-Type", "application/octet-stream");
-		pReq->AddHeader("Content-Disposition", CMStringA(FORMAT, "attachment; filename=\"%s\"", T2Utf(m_wszShortName)));
+		pReq->AddHeader("Content-Disposition", CMStringA(FORMAT, "attachment; filename=\"%s\"", T2Utf(m_wszShortName).get()));
 
 		DWORD dwPortion = pfts.currentFileSize - pfts.currentFileProgress;
 		if (dwPortion > 1000000)
@@ -209,7 +209,6 @@ class CIcqProto : public PROTO<CIcqProto>
 	void      OnLoginViaPhone(NETLIBHTTPREQUEST*, AsyncHttpRequest*);
 	void      OnNormalizePhone(NETLIBHTTPREQUEST*, AsyncHttpRequest*);
 	void      OnReceiveAvatar(NETLIBHTTPREQUEST*, AsyncHttpRequest*);
-	void      OnRefreshEditIgnore(NETLIBHTTPREQUEST*, AsyncHttpRequest*);
 	void      OnSearchResults(NETLIBHTTPREQUEST*, AsyncHttpRequest*);
 	void      OnSendMessage(NETLIBHTTPREQUEST*, AsyncHttpRequest*);
 	void      OnStartSession(NETLIBHTTPREQUEST*, AsyncHttpRequest*);
@@ -245,6 +244,8 @@ class CIcqProto : public PROTO<CIcqProto>
 
 	int       m_unreadEmails = -1;
 	CMStringA m_szMailBox;
+
+	bool      m_bIgnoreListEmpty = true;
 
 	////////////////////////////////////////////////////////////////////////////////////////
 	// group chats
@@ -302,7 +303,6 @@ class CIcqProto : public PROTO<CIcqProto>
 	INT_PTR   __cdecl SetAvatar(WPARAM, LPARAM);
 	
 	INT_PTR   __cdecl CreateAccMgrUI(WPARAM, LPARAM);
-	INT_PTR   __cdecl EditIgnoreList(WPARAM, LPARAM);
 	INT_PTR   __cdecl GetEmailCount(WPARAM, LPARAM);
 	INT_PTR   __cdecl GotoInbox(WPARAM, LPARAM);
 	INT_PTR   __cdecl UploadGroups(WPARAM, LPARAM);
@@ -365,15 +365,12 @@ public:
 	{	return time(0) - m_iTimeShift;
 	}
 
-	int __cdecl OnContactMenu(WPARAM, LPARAM);
 	void SetPermitDeny(const CMStringW &userId, bool bAllow);
 };
 
 struct CMPlugin : public ACCPROTOPLUGIN<CIcqProto>
 {
 	CMPlugin();
-
-	HGENMENU m_hmiRoot, m_hmiIgnore, m_hmiAllow;
 
 	int Load() override;
 	int Unload() override;
