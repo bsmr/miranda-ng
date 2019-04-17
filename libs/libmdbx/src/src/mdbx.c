@@ -37,6 +37,13 @@
 
 #include "./bits.h"
 
+#define print_enter printf("%s:%s:%d enter\n", __FILE__, __FUNCTION__, __LINE__)
+#define print_exit_ok                                                          \
+  printf("%s:%s:%d exit ok\n", __FILE__, __FUNCTION__, __LINE__)
+#define print_exit_error                                                       \
+  printf("\n\n\t%s:%s:%d exit error\n\n\n", __FILE__, __FUNCTION__, __LINE__)
+#define print_line printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__)
+
 /*----------------------------------------------------------------------------*/
 /* Internal inlines */
 
@@ -5957,11 +5964,15 @@ static int __cold mdbx_setup_dxb(MDBX_env *env, int lck_rc) {
   uint64_t filesize_before_mmap;
   MDBX_meta meta;
   int rc = MDBX_RESULT_FALSE;
+  print_enter;
   int err = mdbx_read_header(env, &meta, &filesize_before_mmap);
+  print_line;
   if (unlikely(err != MDBX_SUCCESS)) {
     if (lck_rc != /* lck exclusive */ MDBX_RESULT_TRUE || err != MDBX_ENODATA ||
-        (env->me_flags & MDBX_RDONLY) != 0)
+        (env->me_flags & MDBX_RDONLY) != 0) {
+      print_exit_error;
       return err;
+    }
 
     mdbx_debug("create new database");
     rc = /* new database */ MDBX_RESULT_TRUE;
@@ -5972,25 +5983,34 @@ static int __cold mdbx_setup_dxb(MDBX_env *env, int lck_rc) {
       if (unlikely(err != MDBX_SUCCESS))
         return err;
     }
-
+    print_line;
     void *buffer = mdbx_calloc(NUM_METAS, env->me_psize);
     if (!buffer)
       return MDBX_ENOMEM;
 
+    print_line;
     meta = mdbx_init_metas(env, buffer)->mp_meta;
+    print_line;
     err = mdbx_pwrite(env->me_fd, buffer, env->me_psize * NUM_METAS, 0);
+    print_line;
     mdbx_free(buffer);
-    if (unlikely(err != MDBX_SUCCESS))
+    if (unlikely(err != MDBX_SUCCESS)) {
+      print_exit_error;
       return err;
+    }
 
     err = mdbx_ftruncate(env->me_fd, filesize_before_mmap = env->me_dbgeo.now);
-    if (unlikely(err != MDBX_SUCCESS))
+    if (unlikely(err != MDBX_SUCCESS)) {
+      print_exit_error;
       return err;
+    }
 
 #ifndef NDEBUG /* just for checking */
     err = mdbx_read_header(env, &meta, &filesize_before_mmap);
-    if (unlikely(err != MDBX_SUCCESS))
+    if (unlikely(err != MDBX_SUCCESS)) {
+      print_exit_error;
       return err;
+    }
 #endif
   }
 
@@ -6001,7 +6021,7 @@ static int __cold mdbx_setup_dxb(MDBX_env *env, int lck_rc) {
             meta.mm_geo.lower, meta.mm_geo.next, meta.mm_geo.now,
             meta.mm_geo.upper, meta.mm_geo.grow, meta.mm_geo.shrink,
             meta.mm_txnid_a, mdbx_durable_str(&meta));
-
+  print_line;
   mdbx_setup_pagesize(env, meta.mm_psize);
   const size_t used_bytes = pgno2bytes(env, meta.mm_geo.next);
   if ((env->me_flags & MDBX_RDONLY) /* readonly */
@@ -6015,6 +6035,7 @@ static int __cold mdbx_setup_dxb(MDBX_env *env, int lck_rc) {
         meta.mm_geo.shrink * (uint64_t)meta.mm_psize, meta.mm_psize);
     if (unlikely(err != MDBX_SUCCESS)) {
       mdbx_error("could not use present dbsize-params from db");
+      print_exit_error;
       return MDBX_INCOMPATIBLE;
     }
   } else if (env->me_dbgeo.now) {
@@ -6028,6 +6049,7 @@ static int __cold mdbx_setup_dxb(MDBX_env *env, int lck_rc) {
      *  - upper or lower limit changes
      *  - shrink threshold or growth step
      * But ignore just chagne just a 'now/current' size. */
+    print_line;
     if (bytes_align2os_bytes(env, env->me_dbgeo.upper) !=
             pgno_align2os_bytes(env, meta.mm_geo.upper) ||
         bytes_align2os_bytes(env, env->me_dbgeo.lower) !=
@@ -6047,15 +6069,18 @@ static int __cold mdbx_setup_dxb(MDBX_env *env, int lck_rc) {
                                   env->me_dbgeo.shrink, meta.mm_psize);
       if (unlikely(err != MDBX_SUCCESS)) {
         mdbx_error("could not apply preconfigured dbsize-params to db");
+        print_exit_error;
         return MDBX_INCOMPATIBLE;
       }
 
       /* update meta fields */
+      print_line;
       meta.mm_geo.now = bytes2pgno(env, env->me_dbgeo.now);
       meta.mm_geo.lower = bytes2pgno(env, env->me_dbgeo.lower);
       meta.mm_geo.upper = bytes2pgno(env, env->me_dbgeo.upper);
       meta.mm_geo.grow = (uint16_t)bytes2pgno(env, env->me_dbgeo.grow);
       meta.mm_geo.shrink = (uint16_t)bytes2pgno(env, env->me_dbgeo.shrink);
+      print_line;
 
       mdbx_info("amended: root %" PRIaPGNO "/%" PRIaPGNO ", geo %" PRIaPGNO
                 "/%" PRIaPGNO "-%" PRIaPGNO "/%" PRIaPGNO
@@ -6065,6 +6090,7 @@ static int __cold mdbx_setup_dxb(MDBX_env *env, int lck_rc) {
                 meta.mm_geo.upper, meta.mm_geo.grow, meta.mm_geo.shrink,
                 meta.mm_txnid_a, mdbx_durable_str(&meta));
     }
+    print_line;
     mdbx_ensure(env, meta.mm_geo.now >= meta.mm_geo.next);
   } else {
     /* geo-params not pre-configured by user,
@@ -6075,10 +6101,12 @@ static int __cold mdbx_setup_dxb(MDBX_env *env, int lck_rc) {
     env->me_dbgeo.grow = pgno2bytes(env, meta.mm_geo.grow);
     env->me_dbgeo.shrink = pgno2bytes(env, meta.mm_geo.shrink);
   }
+  print_line;
 
   const size_t expected_bytes =
       mdbx_roundup2(pgno2bytes(env, meta.mm_geo.now), env->me_os_psize);
   mdbx_ensure(env, expected_bytes >= used_bytes);
+  print_line;
   if (filesize_before_mmap != expected_bytes) {
     if (lck_rc != /* lck exclusive */ MDBX_RESULT_TRUE) {
       mdbx_info("filesize mismatch (expect %" PRIuPTR "/%" PRIaPGNO
@@ -6100,6 +6128,7 @@ static int __cold mdbx_setup_dxb(MDBX_env *env, int lck_rc) {
                    bytes2pgno(env, (size_t)filesize_before_mmap));
         return MDBX_CORRUPTED;
       }
+      print_line;
 
       if (env->me_flags & MDBX_RDONLY) {
         if (filesize_before_mmap % env->me_os_psize) {
@@ -6122,15 +6151,19 @@ static int __cold mdbx_setup_dxb(MDBX_env *env, int lck_rc) {
     }
   }
 
+  print_line;
   err = mdbx_env_map(env, (lck_rc != /* lck exclusive */ MDBX_RESULT_TRUE)
                               ? 0
                               : expected_bytes);
-  if (err != MDBX_SUCCESS)
+  if (err != MDBX_SUCCESS) {
+    print_exit_error;
     return err;
+  }
 
   const unsigned meta_clash_mask = mdbx_meta_eq_mask(env);
   if (meta_clash_mask) {
     mdbx_error("meta-pages are clashed: mask 0x%d", meta_clash_mask);
+    print_exit_error;
     return MDBX_WANNA_RECOVERY;
   }
 
@@ -6159,6 +6192,7 @@ static int __cold mdbx_setup_dxb(MDBX_env *env, int lck_rc) {
           (head != meta2 && mdbx_meta_txnid_fluid(env, meta2) == undo_txnid))
         undo_txnid += 1;
       if (unlikely(undo_txnid >= meta.mm_txnid_a)) {
+        print_exit_error;
         mdbx_fatal("rollback failed: no suitable txnid (0,1,2) < %" PRIaTXN,
                    meta.mm_txnid_a);
         return MDBX_PANIC /* LY: could not recovery/rollback */;
@@ -6169,6 +6203,7 @@ static int __cold mdbx_setup_dxb(MDBX_env *env, int lck_rc) {
                  head_txnid, meta.mm_txnid_a, undo_txnid);
       mdbx_ensure(env, head_txnid == mdbx_meta_txnid_stable(env, head));
 
+      print_line;
       if (env->me_flags & MDBX_WRITEMAP) {
         head->mm_txnid_a = undo_txnid;
         head->mm_datasync_sign = MDBX_DATASIGN_WEAK;
@@ -6187,8 +6222,10 @@ static int __cold mdbx_setup_dxb(MDBX_env *env, int lck_rc) {
         err = mdbx_pwrite(env->me_fd, &rollback, sizeof(MDBX_meta),
                           (uint8_t *)head - (uint8_t *)env->me_map);
       }
-      if (err)
+      if (err) {
+        print_exit_error;
         return err;
+      }
 
       mdbx_invalidate_cache(env->me_map, pgno2bytes(env, NUM_METAS));
       mdbx_ensure(env, undo_txnid == mdbx_meta_txnid_fluid(env, head));
@@ -6352,7 +6389,8 @@ static int __cold mdbx_setup_lck(MDBX_env *env, char *lck_pathname,
   }
   env->me_maxreaders = (unsigned)maxreaders;
 
-  err = mdbx_mmap((env->me_flags & MDBX_EXCLUSIVE) | MDBX_WRITEMAP, &env->me_lck_mmap, (size_t)size, (size_t)size);
+  err = mdbx_mmap((env->me_flags & MDBX_EXCLUSIVE) | MDBX_WRITEMAP,
+                  &env->me_lck_mmap, (size_t)size, (size_t)size);
   if (unlikely(err != MDBX_SUCCESS))
     return err;
 
@@ -6423,18 +6461,27 @@ static int __cold mdbx_setup_lck(MDBX_env *env, char *lck_pathname,
 
 int __cold mdbx_env_open(MDBX_env *env, const char *path, unsigned flags,
                          mode_t mode) {
-  if (unlikely(!env || !path))
+  print_enter;
+  if (unlikely(!env || !path)) {
+    print_exit_error;
     return MDBX_EINVAL;
+  }
 
-  if (unlikely(env->me_signature != MDBX_ME_SIGNATURE))
+  if (unlikely(env->me_signature != MDBX_ME_SIGNATURE)) {
+    print_exit_error;
     return MDBX_EBADSIGN;
+  }
 
-  if (flags & ~(CHANGEABLE | CHANGELESS))
+  if (flags & ~(CHANGEABLE | CHANGELESS)) {
+    print_exit_error;
     return MDBX_EINVAL;
+  }
 
   if (env->me_fd != INVALID_HANDLE_VALUE ||
-      (env->me_flags & MDBX_ENV_ACTIVE) != 0)
+      (env->me_flags & MDBX_ENV_ACTIVE) != 0) {
+    print_exit_error;
     return MDBX_EPERM;
+  }
 
   size_t len_full, len = strlen(path);
   if (flags & MDBX_NOSUBDIR) {
@@ -6443,8 +6490,10 @@ int __cold mdbx_env_open(MDBX_env *env, const char *path, unsigned flags,
     len_full = len + sizeof(MDBX_LOCKNAME) + len + sizeof(MDBX_DATANAME);
   }
   char *lck_pathname = mdbx_malloc(len_full);
-  if (!lck_pathname)
+  if (!lck_pathname) {
+    print_exit_error;
     return MDBX_ENOMEM;
+  }
 
   char *dxb_pathname;
   if (flags & MDBX_NOSUBDIR) {
@@ -6476,15 +6525,19 @@ int __cold mdbx_env_open(MDBX_env *env, const char *path, unsigned flags,
   if (rc)
     goto bailout;
 
+  print_line;
   env->me_path = mdbx_strdup(path);
   env->me_dbxs = mdbx_calloc(env->me_maxdbs, sizeof(MDBX_dbx));
   env->me_dbflags = mdbx_calloc(env->me_maxdbs, sizeof(env->me_dbflags[0]));
   env->me_dbiseqs = mdbx_calloc(env->me_maxdbs, sizeof(env->me_dbiseqs[0]));
+  print_line;
   if (!(env->me_dbxs && env->me_path && env->me_dbflags && env->me_dbiseqs)) {
     rc = MDBX_ENOMEM;
     goto bailout;
   }
+  print_line;
   env->me_dbxs[FREE_DBI].md_cmp = mdbx_cmp_int_ai; /* aligned MDBX_INTEGERKEY */
+  print_line;
 
   int oflags;
   if (F_ISSET(flags, MDBX_RDONLY))
@@ -6492,24 +6545,30 @@ int __cold mdbx_env_open(MDBX_env *env, const char *path, unsigned flags,
   else
     oflags = O_RDWR | O_CREAT;
 
+  print_line;
   rc = mdbx_openfile(dxb_pathname, oflags, mode, &env->me_fd,
                      (env->me_flags & MDBX_EXCLUSIVE) ? true : false);
+  print_line;
   if (rc != MDBX_SUCCESS)
     goto bailout;
 
   const int lck_rc = mdbx_setup_lck(env, lck_pathname, mode);
+  print_line;
   if (MDBX_IS_ERROR(lck_rc)) {
+    print_line;
     rc = lck_rc;
     goto bailout;
   }
 
   const int dxb_rc = mdbx_setup_dxb(env, lck_rc);
+  print_line;
   if (MDBX_IS_ERROR(dxb_rc)) {
     rc = dxb_rc;
     goto bailout;
   }
 
   mdbx_debug("opened dbenv %p", (void *)env);
+  print_line;
   if (env->me_lck) {
     const unsigned mode_flags =
         MDBX_WRITEMAP | MDBX_NOSYNC | MDBX_NOMETASYNC | MDBX_MAPASYNC;
@@ -6594,17 +6653,22 @@ int __cold mdbx_env_open(MDBX_env *env, const char *path, unsigned flags,
 
 bailout:
   if (rc) {
+    print_line;
     mdbx_env_close0(env);
+    print_line;
     env->me_flags = saved_me_flags | MDBX_FATAL_ERROR;
   }
+  print_line;
   mdbx_free(lck_pathname);
   return rc;
 }
 
 /* Destroy resources from mdbx_env_open(), clear our readers & DBIs */
 static void __cold mdbx_env_close0(MDBX_env *env) {
+  print_enter;
   if (!(env->me_flags & MDBX_ENV_ACTIVE))
     return;
+  print_line;
   env->me_flags &= ~MDBX_ENV_ACTIVE;
 
   /* Doing this here since me_dbxs may not exist during mdbx_env_close */
@@ -6613,6 +6677,7 @@ static void __cold mdbx_env_close0(MDBX_env *env) {
       mdbx_free(env->me_dbxs[i].md_name.iov_base);
     mdbx_free(env->me_dbxs);
   }
+  print_line;
 
   mdbx_free(env->me_pbuf);
   mdbx_free(env->me_dbiseqs);
@@ -6623,6 +6688,7 @@ static void __cold mdbx_env_close0(MDBX_env *env) {
     mdbx_txl_free(env->me_txn0->mt_lifo_reclaimed);
     mdbx_free(env->me_txn0);
   }
+  print_line;
   mdbx_pnl_free(env->me_free_pgs);
 
   if (env->me_flags & MDBX_ENV_TXKEY)
@@ -6637,16 +6703,21 @@ static void __cold mdbx_env_close0(MDBX_env *env) {
     env->me_valgrind_handle = -1;
 #endif
   }
+  print_line;
   if (env->me_fd != INVALID_HANDLE_VALUE) {
     (void)mdbx_closefile(env->me_fd);
     env->me_fd = INVALID_HANDLE_VALUE;
   }
-
+  print_line;
   if (env->me_lck)
+	  {
+	  print_line;
     mdbx_munmap(&env->me_lck_mmap);
+	}
   env->me_oldest = nullptr;
-
+  print_line;
   mdbx_lck_destroy(env);
+  print_line;
   if (env->me_lfd != INVALID_HANDLE_VALUE) {
     (void)mdbx_closefile(env->me_lfd);
     env->me_lfd = INVALID_HANDLE_VALUE;

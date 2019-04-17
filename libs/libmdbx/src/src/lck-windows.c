@@ -117,6 +117,13 @@ static
 #define LCK_WAITFOR 0
 #define LCK_DONTWAIT LOCKFILE_FAIL_IMMEDIATELY
 
+#define print_enter printf("%s:%s:%d enter\n", __FILE__, __FUNCTION__, __LINE__)
+#define print_exit_ok                                                          \
+  printf("%s:%s:%d exit ok\n", __FILE__, __FUNCTION__, __LINE__)
+#define print_exit_error                                                       \
+  printf("\n\n\t%s:%s:%d exit error\n\n\n", __FILE__, __FUNCTION__, __LINE__)
+#define print_line printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__)
+
 static __inline BOOL flock(mdbx_filehandle_t fd, DWORD flags, uint64_t offset,
                            size_t bytes) {
   OVERLAPPED ov;
@@ -493,22 +500,32 @@ int mdbx_lck_downgrade(MDBX_env *env, bool complete) {
 
 void mdbx_lck_destroy(MDBX_env *env) {
   int rc;
+  print_enter;
 
   if (env->me_lfd != INVALID_HANDLE_VALUE) {
+    print_line;
     /* double `unlock` for robustly remove overlapped shared/exclusive locks */
     while (funlock(env->me_lfd, LCK_LOWER))
       ;
+    print_line;
     rc = GetLastError();
+    print_line;
     assert(rc == ERROR_NOT_LOCKED);
+    print_line;
     (void)rc;
     SetLastError(ERROR_SUCCESS);
+    print_line;
 
     while (funlock(env->me_lfd, LCK_UPPER))
       ;
+    print_line;
     rc = GetLastError();
+    print_line;
     assert(rc == ERROR_NOT_LOCKED);
+    print_line;
     (void)rc;
     SetLastError(ERROR_SUCCESS);
+	print_exit_ok;
   }
 
   if (env->me_fd != INVALID_HANDLE_VALUE) {

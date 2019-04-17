@@ -23,6 +23,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "stdafx.h"
 
+#define print_enter printf("%s:%s:%d enter\n", __FILE__, __FUNCTION__, __LINE__)
+#define print_exit_ok printf("%s:%s:%d exit ok\n", __FILE__, __FUNCTION__, __LINE__)
+#define print_exit_error printf("\n\n\t%s:%s:%d exit error\n\n\n", __FILE__, __FUNCTION__, __LINE__)
+
+
 CMPlugin g_plugin;
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -63,27 +68,39 @@ static void logger(int type, const char *function, int line, const char *msg, va
 // returns 0 if the profile is created, EMKPRF*
 static int makeDatabase(const TCHAR *profile)
 {
+	print_enter;
 	std::unique_ptr<CDbxMDBX> db(new CDbxMDBX(profile, 0));
+	print_exit_ok;
 	return db->Map();
 }
 
 // returns 0 if the given profile has a valid header
 static int grokHeader(const TCHAR *profile)
 {
+	print_enter;
 	std::unique_ptr<CDbxMDBX> db(new CDbxMDBX(profile, DBMODE_SHARED | DBMODE_READONLY));
+	print_exit_ok;
 	return db->Check();
 }
 
 // returns 0 if all the APIs are injected otherwise, 1
 static MDatabaseCommon* loadDatabase(const TCHAR *profile, BOOL bReadOnly)
 {
+	print_enter;
 	std::unique_ptr<CDbxMDBX> db(new CDbxMDBX(profile, (bReadOnly) ? DBMODE_READONLY : 0));
 	if (db->Map() != ERROR_SUCCESS)
+	{
+		print_exit_error;
 		return nullptr;
+	}
 
 	if (db->Load() != ERROR_SUCCESS)
+	{
+		print_exit_error;
 		return nullptr;
+	}
 
+	print_exit_ok;
 	return db.release();
 }
 
@@ -99,7 +116,9 @@ static DATABASELINK dblink =
 
 int CMPlugin::Load()
 {
+	print_enter;
 	mdbx_setup_debug(MDBX_DBG_ASSERT | MDBX_DBG_PRINT, &logger);
 	RegisterDatabasePlugin(&dblink);
+	print_exit_ok;
 	return 0;
 }

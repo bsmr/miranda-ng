@@ -23,8 +23,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "stdafx.h"
 
+#define print_enter printf("%s:%s:%d enter\n", __FILE__, __FUNCTION__, __LINE__)
+#define print_exit_ok printf("%s:%s:%d exit ok\n", __FILE__, __FUNCTION__, __LINE__)
+#define print_exit_error printf("\n\n\t%s:%s:%d exit error\n\n\n", __FILE__, __FUNCTION__, __LINE__)
+
 int CDbxMDBX::InitModules()
 {
+	print_enter;
 	txn_ptr_ro trnlck(m_txn_ro);
 	cursor_ptr_ro cursor(m_curModules);
 	
@@ -34,12 +39,14 @@ int CDbxMDBX::InitModules()
 		const char *szMod = (const char*)data.iov_base;
 		m_Modules[iMod] = szMod;
 	}
+	print_exit_ok;
 	return 0;
 }
 
 // will create the offset if it needs to
 uint32_t CDbxMDBX::GetModuleID(const char *szName)
 {
+	print_enter;
 	if (szName == nullptr)
 		return 0;
 
@@ -49,29 +56,51 @@ uint32_t CDbxMDBX::GetModuleID(const char *szName)
 		{
 			txn_ptr trnlck(StartTran());
 			if (mdbx_put(trnlck, m_dbModules, &key, &data, 0) != MDBX_SUCCESS)
+			{
+				print_exit_error;
 				return -1;
+			}
 			if (trnlck.commit() != MDBX_SUCCESS)
+			{
+				print_exit_error;
 				return -1;
+			}
 		}
 
 		m_Modules[iHash] = szName;
 		DBFlush();
 	}
-
+	print_exit_ok;
 	return iHash;
 }
 
 char* CDbxMDBX::GetModuleName(uint32_t dwId)
 {
+	print_enter;
 	auto it = m_Modules.find(dwId);
-	return it != m_Modules.end() ? const_cast<char*>(it->second.c_str()) : nullptr;
+	char *ret = it != m_Modules.end() ? const_cast<char*>(it->second.c_str()) : nullptr;
+	if (ret != nullptr)
+	{
+		print_exit_ok;
+	}
+	else
+	{
+		print_exit_error;
+	}
+	return ret;
 }
 
 BOOL CDbxMDBX::EnumModuleNames(DBMODULEENUMPROC pFunc, void *pParam)
 {
+	print_enter;
 	for (auto it = m_Modules.begin(); it != m_Modules.end(); ++it)
+	{
 		if (int ret = pFunc(it->second.c_str(), pParam))
+		{
+			print_exit_ok;
 			return ret;
-
+		}
+	}
+	print_exit_error;
 	return 0;
 }

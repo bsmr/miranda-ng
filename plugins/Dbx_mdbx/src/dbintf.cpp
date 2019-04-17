@@ -23,6 +23,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "stdafx.h"
 
+#define print_enter printf("%s:%s:%d enter\n", __FILE__, __FUNCTION__, __LINE__)
+#define print_exit_ok printf("%s:%s:%d exit ok\n", __FILE__, __FUNCTION__, __LINE__)
+#define print_exit_error printf("\n\n\t%s:%s:%d exit error\n\n\n", __FILE__, __FUNCTION__, __LINE__)
+#define print_line printf("%s:%s:%d\n",  __FILE__, __FUNCTION__, __LINE__)
+
+
 /////////////////////////////////////////////////////////////////////////////////////////
 // constructor & destructor
 
@@ -32,16 +38,19 @@ CDbxMDBX::CDbxMDBX(const TCHAR *tszFileName, int iMode) :
 	m_bShared((iMode & DBMODE_SHARED) != 0),
 	m_maxContactId(0)
 {
+	print_enter;
 	m_tszProfileName = mir_wstrdup(tszFileName);
 
 	if (!m_bReadOnly) {
 		m_hwndTimer = CreateWindowExW(0, L"STATIC", nullptr, 0, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, HWND_DESKTOP, nullptr, g_plugin.getInst(), nullptr);
 		::SetWindowLongPtr(m_hwndTimer, GWLP_USERDATA, (LONG_PTR)this);
 	}
+	print_exit_ok;
 }
 
 CDbxMDBX::~CDbxMDBX()
 {
+	print_enter;
 	mdbx_env_close(m_env);
 
 	if (!m_bReadOnly)
@@ -58,12 +67,14 @@ CDbxMDBX::~CDbxMDBX()
 		m_crypto->destroy();
 
 	mir_free(m_tszProfileName);
+	print_exit_ok;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
 int CDbxMDBX::Load()
 {
+	print_enter;
 	unsigned int defFlags = MDBX_CREATE;
 	{
 		txn_ptr trnlck(StartTran());
@@ -82,9 +93,15 @@ int CDbxMDBX::Load()
 		if (mdbx_get(trnlck, m_dbGlobal, &key, &data) == MDBX_SUCCESS) {
 			const DBHeader *hdr = (const DBHeader*)data.iov_base;
 			if (hdr->dwSignature != DBHEADER_SIGNATURE)
+			{
+				print_exit_error;
 				return EGROKPRF_DAMAGED;
+			}
 			if (hdr->dwVersion != DBHEADER_VERSION)
+			{
+				print_exit_error;
 				return EGROKPRF_OBSOLETE;
+			}
 
 			m_header = *hdr;
 		}
@@ -124,6 +141,7 @@ int CDbxMDBX::Load()
 
 	FillContacts();
 
+	print_exit_ok;
 	return EGROKPRF_NOERROR;
 }
 
@@ -134,18 +152,33 @@ BYTE bDefHeader[] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 
 int CDbxMDBX::Check(void)
 {
+	print_enter;
 	FILE *pFile = _wfopen(m_tszProfileName, L"rb");
 	if (pFile == nullptr)
+	{
+		print_exit_error;
 		return EGROKPRF_CANTREAD;
+	}
 
 	fseek(pFile, (LONG)iDefHeaderOffset, SEEK_SET);
 	BYTE buf[_countof(bDefHeader)];
 	size_t cbRead = fread(buf, 1, _countof(buf), pFile);
 	fclose(pFile);
 	if (cbRead != _countof(buf))
+	{
+		print_exit_error;
 		return EGROKPRF_DAMAGED;
-
-	return (memcmp(buf, bDefHeader, _countof(bDefHeader))) ? EGROKPRF_UNKHEADER : 0;
+	}
+	uint16_t ret = (memcmp(buf, bDefHeader, _countof(bDefHeader))) ? EGROKPRF_UNKHEADER : 0;
+	if (ret)
+	{
+		print_exit_error;
+	}
+	else
+	{
+		print_exit_ok;
+	}
+	return ret;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -225,14 +258,24 @@ static void assert_func(const MDBX_env*, const char *msg, const char *function, 
 
 int CDbxMDBX::Map()
 {
+	print_enter;
 	if (!LockName(m_tszProfileName))
+	{
+		print_exit_error;
 		return EGROKPRF_CANTREAD;
+	}
 
+	print_line;
 	mdbx_env_create(&m_env);
+	print_line;
 	mdbx_env_set_maxdbs(m_env, 10);
+	print_line;
 	mdbx_env_set_maxreaders(m_env, 244);
+	print_line;
 	mdbx_env_set_userctx(m_env, this);
+	print_line;
 	mdbx_env_set_assert(m_env, assert_func);
+	print_line;
 
 	#ifdef _WIN64
 		__int64 upperLimit = 0x400000000ul;
@@ -247,16 +290,24 @@ int CDbxMDBX::Map()
 		  1ul << 20,   // 1M growth step
 		512ul << 10,   // 512K shrink threshold
 		         -1);  // default page size
+	print_line;
 	if (rc != MDBX_SUCCESS)
+	{
+		print_exit_error;
 		return EGROKPRF_CANTREAD;
+	}
 
 	unsigned int mode = MDBX_NOSUBDIR | MDBX_MAPASYNC | MDBX_WRITEMAP | MDBX_NOSYNC | MDBX_COALESCE | MDBX_EXCLUSIVE;
 	if (m_bReadOnly)
 		mode |= MDBX_RDONLY;
 
 	if (mdbx_env_open(m_env, _T2A(m_tszProfileName), mode, 0664) != MDBX_SUCCESS)
+	{
+		print_exit_error;
 		return EGROKPRF_CANTREAD;
+	}
 
+	print_exit_ok;
 	return EGROKPRF_NOERROR;
 }
 
