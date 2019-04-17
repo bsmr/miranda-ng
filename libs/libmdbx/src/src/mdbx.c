@@ -6312,21 +6312,30 @@ static int __cold mdbx_setup_dxb(MDBX_env *env, int lck_rc) {
 /* Open and/or initialize the lock region for the environment. */
 static int __cold mdbx_setup_lck(MDBX_env *env, char *lck_pathname,
                                  mode_t mode) {
+  print_enter;
   mdbx_assert(env, env->me_fd != INVALID_HANDLE_VALUE);
+  print_line;
   mdbx_assert(env, env->me_lfd == INVALID_HANDLE_VALUE);
+  print_line;
 
   int err = mdbx_openfile(lck_pathname, O_RDWR | O_CREAT, mode, &env->me_lfd,
                           (env->me_flags & MDBX_EXCLUSIVE) ? true : false);
+  print_line;
   if (err != MDBX_SUCCESS) {
     if (!(err == MDBX_ENOFILE && (env->me_flags & MDBX_EXCLUSIVE)) &&
-        !(err == MDBX_EROFS && (env->me_flags & MDBX_RDONLY)))
+        !(err == MDBX_EROFS && (env->me_flags & MDBX_RDONLY))) {
+      print_exit_error;
       return err;
+    }
 
     /* LY: without-lck mode (e.g. exclusive or on read-only filesystem) */
     env->me_lfd = INVALID_HANDLE_VALUE;
+	print_line;
     const int rc = mdbx_lck_seize(env);
-    if (MDBX_IS_ERROR(rc))
+    if (MDBX_IS_ERROR(rc)) {
+      print_exit_error;
       return rc;
+    }
 
     env->me_oldest = &env->me_oldest_stub;
     env->me_maxreaders = UINT_MAX;
@@ -6336,6 +6345,7 @@ static int __cold mdbx_setup_lck(MDBX_env *env, char *lck_pathname,
     mdbx_debug("lck-setup:%s%s%s", " lck-less",
                (env->me_flags & MDBX_RDONLY) ? " readonly" : "",
                (rc == MDBX_RESULT_TRUE) ? " exclusive" : " cooperative");
+    print_exit_ok;
     return rc;
   }
 
@@ -6523,7 +6533,10 @@ int __cold mdbx_env_open(MDBX_env *env, const char *path, unsigned flags,
   const uint32_t saved_me_flags = env->me_flags;
   env->me_flags = (flags & ~MDBX_FATAL_ERROR) | MDBX_ENV_ACTIVE;
   if (rc)
+	  {
+	  print_exit_error;
     goto bailout;
+	}
 
   print_line;
   env->me_path = mdbx_strdup(path);
@@ -6533,6 +6546,7 @@ int __cold mdbx_env_open(MDBX_env *env, const char *path, unsigned flags,
   print_line;
   if (!(env->me_dbxs && env->me_path && env->me_dbflags && env->me_dbiseqs)) {
     rc = MDBX_ENOMEM;
+	print_exit_error;
     goto bailout;
   }
   print_line;
@@ -6550,12 +6564,15 @@ int __cold mdbx_env_open(MDBX_env *env, const char *path, unsigned flags,
                      (env->me_flags & MDBX_EXCLUSIVE) ? true : false);
   print_line;
   if (rc != MDBX_SUCCESS)
+	  {
+	  print_exit_error;
     goto bailout;
+	}
 
   const int lck_rc = mdbx_setup_lck(env, lck_pathname, mode);
   print_line;
   if (MDBX_IS_ERROR(lck_rc)) {
-    print_line;
+    print_exit_error;
     rc = lck_rc;
     goto bailout;
   }
@@ -6564,6 +6581,7 @@ int __cold mdbx_env_open(MDBX_env *env, const char *path, unsigned flags,
   print_line;
   if (MDBX_IS_ERROR(dxb_rc)) {
     rc = dxb_rc;
+	print_exit_error;
     goto bailout;
   }
 
@@ -6584,7 +6602,10 @@ int __cold mdbx_env_open(MDBX_env *env, const char *path, unsigned flags,
         mdbx_debug("lck-downgrade-partial: rc %i ", rc);
       }
       if (rc != MDBX_SUCCESS)
+		  {
+		  print_exit_error;
         goto bailout;
+		}
     } else {
       if ((env->me_flags & MDBX_RDONLY) == 0) {
         while (env->me_lck->mti_envmode == MDBX_RDONLY) {
@@ -6597,6 +6618,7 @@ int __cold mdbx_env_open(MDBX_env *env, const char *path, unsigned flags,
         if ((env->me_lck->mti_envmode ^ env->me_flags) & mode_flags) {
           mdbx_error("current mode/flags incompatible with requested");
           rc = MDBX_INCOMPATIBLE;
+		  print_exit_error;
           goto bailout;
         }
       }
@@ -6606,7 +6628,10 @@ int __cold mdbx_env_open(MDBX_env *env, const char *path, unsigned flags,
       rc = mdbx_rthc_alloc(&env->me_txkey, &env->me_lck->mti_readers[0],
                            &env->me_lck->mti_readers[env->me_maxreaders]);
       if (unlikely(rc != MDBX_SUCCESS))
+		  {
+		  print_exit_error;
         goto bailout;
+		}
       env->me_flags |= MDBX_ENV_TXKEY;
     }
   }
@@ -6709,11 +6734,10 @@ static void __cold mdbx_env_close0(MDBX_env *env) {
     env->me_fd = INVALID_HANDLE_VALUE;
   }
   print_line;
-  if (env->me_lck)
-	  {
-	  print_line;
+  if (env->me_lck) {
+    print_line;
     mdbx_munmap(&env->me_lck_mmap);
-	}
+  }
   env->me_oldest = nullptr;
   print_line;
   mdbx_lck_destroy(env);

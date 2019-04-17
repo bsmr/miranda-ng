@@ -417,11 +417,15 @@ static int internal_seize_lck(HANDLE lfd) {
 }
 
 int mdbx_lck_seize(MDBX_env *env) {
+  print_enter;
   int rc;
 
   assert(env->me_fd != INVALID_HANDLE_VALUE);
-  if (env->me_flags & MDBX_EXCLUSIVE)
+  print_line;
+  if (env->me_flags & MDBX_EXCLUSIVE) {
+    print_exit_ok;
     return MDBX_RESULT_TRUE /* files were must be opened non-shareable */;
+  }
 
   if (env->me_lfd == INVALID_HANDLE_VALUE) {
     /* LY: without-lck mode (e.g. on read-only filesystem) */
@@ -429,12 +433,16 @@ int mdbx_lck_seize(MDBX_env *env) {
     if (!flock(env->me_fd, LCK_SHARED | LCK_DONTWAIT, LCK_WHOLE)) {
       rc = GetLastError();
       mdbx_error("%s(%s) failed: errcode %u", mdbx_func_, "without-lck", rc);
+      print_exit_error;
       return rc;
     }
+    print_exit_error;
     return MDBX_RESULT_FALSE;
   }
 
+  print_line;
   rc = internal_seize_lck(env->me_lfd);
+  print_line;
   mdbx_jitter4testing(false);
   if (rc == MDBX_RESULT_TRUE && (env->me_flags & MDBX_RDONLY) == 0) {
     /* Check that another process don't operates in without-lck mode.
@@ -457,6 +465,11 @@ int mdbx_lck_seize(MDBX_env *env) {
     }
   }
 
+  if (rc == MDBX_RESULT_TRUE) {
+    print_exit_ok;
+  } else {
+    print_exit_error;
+  }
   return rc;
 }
 
@@ -525,7 +538,7 @@ void mdbx_lck_destroy(MDBX_env *env) {
     print_line;
     (void)rc;
     SetLastError(ERROR_SUCCESS);
-	print_exit_ok;
+    print_exit_ok;
   }
 
   if (env->me_fd != INVALID_HANDLE_VALUE) {
